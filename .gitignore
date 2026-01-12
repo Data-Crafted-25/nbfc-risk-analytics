@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Data files
+data/
+*.csv
+
+# Secrets
+config.py
+
+# Logs
+*.log
+
+# Power BI autosaves
+*.pbix.autosave
+
+# SQL Server backups
+*.bak
+*.trn
