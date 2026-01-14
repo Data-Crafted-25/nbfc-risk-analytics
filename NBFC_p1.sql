@@ -144,8 +144,18 @@ SELECT AVG(resolution_tat_days) AS AVG_TAT FROM fact_resolution
 --DELIVERABLE 4: Agent, Branch & Region Performance
 
 --Agents with Low PTP Adherence
+WITH CTE_1 AS (
+SELECT DM.agent_id,DM.agent_name,
+CAST(COUNT(CASE WHEN ptp_status='Kept' THEN 1 END)*100.0/COUNT(*) AS INT) AS PTP_ADHERENCE_RATE 
+FROM fact_ptp AS FP INNER JOIN dim_agent AS DM 
+ON FP.agent_id=DM.agent_id GROUP BY DM.agent_id,DM.agent_name
+)
+SELECT agent_id,AGENT_NAME,PTP_ADHERENCE_RATE 
+FROM CTE_1 WHERE PTP_ADHERENCE_RATE<
+(SELECT AVG(PTP_ADHERENCE_RATE) FROM CTE_1)
 
-SELECT REGIION ,SUM(
+--DELIVERABLE 5: Resource Optimisation & Decision Support
+
 
 
 
