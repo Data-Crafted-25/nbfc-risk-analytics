@@ -132,9 +132,20 @@ fact_loan_account AS FL INNER JOIN fact_collection_contact AS FC
 ON FL.loan_account_id = FC.loan_account_id
 WHERE current_dpd>0
 
+--PTP Adherence Rate
 
+SELECT CAST(COUNT(CASE WHEN ptp_status='Kept' THEN 1 END)*100.0/COUNT(*) AS INT) AS PTP_ADHERENCE_RATE 
+FROM fact_ptp
 
+--Average Resolution Turnaround Time
 
+SELECT AVG(resolution_tat_days) AS AVG_TAT FROM fact_resolution 
+
+--DELIVERABLE 4: Agent, Branch & Region Performance
+
+--Agents with Low PTP Adherence
+
+SELECT REGIION ,SUM(
 
 
 
