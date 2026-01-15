@@ -179,14 +179,89 @@ FROM CTE_1 WHERE PTP_ADHERENCE_RATE<
 
 --Branch-wise Delinquency Rate
 
+SELECT DB.branch_id,DB.branch_name, 
+CAST(ROUND(COUNT(CASE WHEN CURRENT_DPD>1 THEN 1 END)*1.0/COUNT(*),2) AS decimal(10,2)) AS DELIQUENCY_RATE
+FROM dim_agent AS DA INNER JOIN fact_loan_account AS FL 
+ON DA.LOAN_ACCOUNT_ID=FL.loan_account_id
+INNER JOIN dim_branch AS DB 
+ON DA.branch_id=DB.branch_id
+GROUP BY DB.branch_id,DB.branch_name
+ORDER BY DELIQUENCY_RATE DESC
 
+--Region-wise Recovery Comparison
+
+SELECT REGION ,CAST(SUM(RECOVERED_AMOUNT) AS int) AS POS_SAVED
+FROM fact_resolution AS FR INNER  JOIN dim_agent AS DA
+ON FR.loan_account_id=DA.loan_account_id INNER JOIN dim_branch AS DB
+ON DA.branch_id=DB.branch_id GROUP BY REGION 
+ORDER BY POS_SAVED DESC
 
 --DELIVERABLE 5: Resource Optimisation & Decision Support
 
 --High-Priority Allocation List
 
+SELECT DISTINCT FA.loan_account_id,CAST(FA.outstanding_principal AS INT)AS POS,FA.current_dpd,FA.delinquency_bucket
+FROM 
+fact_loan_account AS FA LEFT JOIN fact_repayment AS FP 
+ON FA.loan_account_id=FP.loan_account_id LEFT JOIN 
+fact_ptp AS FT ON FA.loan_account_id=FT.loan_account_id
+WHERE FA.outstanding_principal>(
+SELECT AVG(outstanding_principal) FROM fact_loan_account) AND 
+FA.current_dpd BETWEEN 1 AND 60 AND 
+(FP.payment_status='MISSED' OR FT.ptp_status='BROKEN')
+
+--Low-Yield Recovery Accounts
+
+SELECT FL.loan_account_id,CAST(FR.recovered_amount AS int) AS POS FROM 
+fact_loan_account AS FL INNER JOIN fact_resolution AS FR 
+ON FL.loan_account_id=FR.loan_account_id
+WHERE recovered_amount<0.31*FL.outstanding_principal -- THERSOLD LEVEL SET TO 30%
+
+--No-Contact High-Risk Loans
+
+SELECT FL.loan_account_id FROM
+fact_loan_account AS FL LEFT JOIN fact_collection_contact AS FC
+ON FL.loan_account_id=FC.loan_account_id 
+AND TRY_CONVERT(DATE, FC.contact_date)>=DATEADD(DAY,-60,GETDATE())
+WHERE FL.current_dpd>30 
+GROUP BY FL.loan_account_id
+HAVING COUNT(FC.contact_id)=0
+
+--Risk Segmentation
+
+SELECT 
+CASE 
+WHEN CURRENT_DPD > 60 THEN 'HIGH RISK'
+WHEN CURRENT_DPD BETWEEN 30 AND 60 THEN 'MEDIUM RISK'
+ELSE 'LOW RISK' 
+END AS [RISK SEGMENT],
+COUNT(LOAN_ACCOUNT_ID) AS TOTAL_ACCOUNTS 
+FROM 
+FACT_LOAN_ACCOUNT 
+GROUP BY 
+CASE 
+WHEN CURRENT_DPD > 60 THEN 'HIGH RISK'
+WHEN CURRENT_DPD BETWEEN 30 AND 60 THEN 'MEDIUM RISK'
+ELSE 'LOW RISK' 
+END
+ORDER BY TOTAL_ACCOUNTS DESC
+
+--Daily Agent Allocation View
 
 
 
+CREATE VIEW daily_agent_allocation AS
+SELECT FL.LOAN_ACCOUNT_ID,DA.AGENT_ID,DA.AGENT_NAME ,DA.ROLE,
+CASE 
+WHEN CURRENT_DPD >60 THEN 'FIELD'
+ELSE 'TELECALLER'
+END AS CHANNEL_TYPE
+FROM 
+FACT_LOAN_ACCOUNT AS FL INNER JOIN DIM_AGENT AS DA
+ON DA.ROLE=
+CASE 
+WHEN CURRENT_DPD >60 THEN 'FIELD'
+ELSE 'TELECALLER'
+END
 
-
+select * from daily_agent_allocation
