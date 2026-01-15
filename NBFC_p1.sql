@@ -143,6 +143,29 @@ SELECT AVG(resolution_tat_days) AS AVG_TAT FROM fact_resolution
 
 --DELIVERABLE 4: Agent, Branch & Region Performance
 
+--Agent-wise Recovery Ranking
+
+SELECT AGENT_ID,AGENT_NAME,CAST (SUM(RECOVERED_AMOUNT) AS INT) AS POS_RECOVERED FROM 
+fact_resolution AS FR INNER JOIN dim_agent AS DA 
+ON FR.loan_account_id = DA.LOAN_ACCOUNT_ID 
+GROUP BY agent_id,agent_name
+
+--Bottom 10% Performing Agents
+
+with cte_1 as (
+SELECT AGENT_ID,AGENT_NAME,CAST (SUM(RECOVERED_AMOUNT) AS INT) AS POS_RECOVERED FROM 
+fact_resolution AS FR INNER JOIN dim_agent AS DA 
+ON FR.loan_account_id = DA.LOAN_ACCOUNT_ID 
+GROUP BY agent_id,agent_name
+)
+SELECT AGENT_ID,AGENT_NAME,Bucket
+FROM (
+SELECT AGENT_ID,AGENT_NAME,
+NTILE(10)over (order by POS_RECOVERED ) as Bucket 
+from cte_1 ) AS SUB
+where bucket =1
+
+
 --Agents with Low PTP Adherence
 WITH CTE_1 AS (
 SELECT DM.agent_id,DM.agent_name,
@@ -154,7 +177,15 @@ SELECT agent_id,AGENT_NAME,PTP_ADHERENCE_RATE
 FROM CTE_1 WHERE PTP_ADHERENCE_RATE<
 (SELECT AVG(PTP_ADHERENCE_RATE) FROM CTE_1)
 
+--Branch-wise Delinquency Rate
+
+
+
 --DELIVERABLE 5: Resource Optimisation & Decision Support
+
+--High-Priority Allocation List
+
+
 
 
 
