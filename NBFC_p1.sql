@@ -3,7 +3,7 @@ USE NBFC_COLLECTIONS
 
 --DELIVERABLE 1 : PORTFOLIO HEALTH & DELIQUENCY
 
---CURRENT DELIQUENCY DISTRIBUTION
+--1.CURRENT DELIQUENCY DISTRIBUTION
 
 select delinquency_bucket,count(*) as loan_count ,
 case delinquency_bucket when '0-30' then 'Bucket_1'
@@ -19,30 +19,30 @@ when '61-90' then 3
 else  4
 END
 
---High-Risk Outstanding Exposure
+--2.High-Risk Outstanding Exposure
 
 SELECT ROUND(SUM(outstanding_principal),0) AS HIGH_RISK_OUTSTANDING
 FROM fact_loan_account
 WHERE current_dpd =90
 
---Year-wise Loan Disbursement Trend
+--3.Year-wise Loan Disbursement Trend
 
 SELECT YEAR(DISBURSEMENT_DATE) AS DISBURSEMENT_YEAR,COUNT(*) AS LOAN_COUNT
 FROM fact_loan_account GROUP BY YEAR(DISBURSEMENT_DATE)
 ORDER BY DISBURSEMENT_YEAR
 
---Worst Ever DPD Per Loan
+--4.Worst Ever DPD Per Loan
 
 SELECT LOAN_ACCOUNT_ID ,MAX(MAX_DPD_EVER) AS MAX_DPD FROM fact_loan_account 
 GROUP BY LOAN_ACCOUNT_ID
 
--- Loans Never Delinquent
+--5.Loans Never Delinquent
 
 SELECT LOAN_ACCOUNT_ID FROM fact_loan_account WHERE current_dpd =0
 
 ---DELIVERABLE 2: Early Risk & DPD Migration
 
---Early-Warning Accounts (0–30 DPD)
+--6.Early-Warning Accounts (0–30 DPD)
 
 WITH MISSED_EMI AS 
 (
@@ -60,7 +60,7 @@ WHERE F.current_dpd BETWEEN 1 AND 30
 AND  (ISNULL(M.MISSED_COUNT,0)>1 
 OR ISNULL(B.BROKEN_PTP_COUNT,0)>=1)
 
---DPD Bucket Migration Detection
+--7.DPD Bucket Migration Detection
 
 WITH DPD_CHANGE AS(
 SELECT loan_account_id,DPD ,
@@ -70,7 +70,7 @@ FROM fact_dpd_snapshot)
 SELECT DISTINCT loan_account_id,DPD,PREVIOUS_DPD FROM DPD_CHANGE
 WHERE PREVIOUS_DPD BETWEEN 1 AND 30 AND DPD>=60
 
---Consecutive DPD Increase
+--8.Consecutive DPD Increase
 
 WITH DPD_SEQ AS (
 SELECT *,
@@ -85,13 +85,13 @@ FROM DPD_SEQ
 SELECT DISTINCT LOAN_ACCOUNT_ID FROM GRP WHERE DPD_INCREASE=1
 GROUP BY loan_account_id,GRP_ID HAVING COUNT(*)>=3
 
---First Date Loan Crossed 30 DPD
+--9.First Date Loan Crossed 30 DPD
 
 SELECT LOAN_ACCOUNT_ID, CAST(MIN(SNAPSHOT_DATE) AS date) AS FIRST_TIME_DPD
 FROM fact_dpd_snapshot WHERE dpd>30
 GROUP BY loan_account_id
 
---Portfolio Roll Rate
+--10.Portfolio Roll Rate
 
 WITH DPD_TRANSITIONS AS (
 SELECT LOAN_ACCOUNT_ID,
@@ -105,20 +105,20 @@ FROM DPD_TRANSITIONS
 
 --DELIVERABLE 3: Collections Effectiveness KPIs
 
---Portfolio Recovery Rate
+--11.Portfolio Recovery Rate
 
 SELECT ROUND(SUM(recovered_amount)*100/SUM(outstanding_principal),2) AS RECOVERY_RATE
 FROM fact_resolution FR INNER JOIN fact_loan_account FL 
 ON FR.loan_account_id=FL.loan_account_id
 
---Recovery Rate by Product Type
+--12.Recovery Rate by Product Type
 
 SELECT product_type,ROUND(SUM(recovered_amount)*100/SUM(outstanding_principal),2) AS RECOVERY_RATE
 FROM fact_loan_account AS FL INNER JOIN fact_resolution AS FR 
 ON FL.loan_account_id=FR.loan_account_id 
 GROUP BY product_type
 
---Contact Rate for Delinquent Loans
+--13.Contact Rate for Delinquent Loans
 
 SELECT 
 CAST(ROUND(COUNT(DISTINCT CASE WHEN FC.contact_outcome='Connected' THEN FC.LOAN_ACCOUNT_ID END)*100.0 /
@@ -132,25 +132,25 @@ fact_loan_account AS FL INNER JOIN fact_collection_contact AS FC
 ON FL.loan_account_id = FC.loan_account_id
 WHERE current_dpd>0
 
---PTP Adherence Rate
+--14.PTP Adherence Rate
 
 SELECT CAST(COUNT(CASE WHEN ptp_status='Kept' THEN 1 END)*100.0/COUNT(*) AS INT) AS PTP_ADHERENCE_RATE 
 FROM fact_ptp
 
---Average Resolution Turnaround Time
+--15.Average Resolution Turnaround Time
 
 SELECT AVG(resolution_tat_days) AS AVG_TAT FROM fact_resolution 
 
 --DELIVERABLE 4: Agent, Branch & Region Performance
 
---Agent-wise Recovery Ranking
+--16.Agent-wise Recovery Ranking
 
 SELECT AGENT_ID,AGENT_NAME,CAST (SUM(RECOVERED_AMOUNT) AS INT) AS POS_RECOVERED FROM 
 fact_resolution AS FR INNER JOIN dim_agent AS DA 
 ON FR.loan_account_id = DA.LOAN_ACCOUNT_ID 
 GROUP BY agent_id,agent_name
 
---Bottom 10% Performing Agents
+--17.Bottom 10% Performing Agents
 
 with cte_1 as (
 SELECT AGENT_ID,AGENT_NAME,CAST (SUM(RECOVERED_AMOUNT) AS INT) AS POS_RECOVERED FROM 
@@ -166,7 +166,7 @@ from cte_1 ) AS SUB
 where bucket =1
 
 
---Agents with Low PTP Adherence
+--18.Agents with Low PTP Adherence
 WITH CTE_1 AS (
 SELECT DM.agent_id,DM.agent_name,
 CAST(COUNT(CASE WHEN ptp_status='Kept' THEN 1 END)*100.0/COUNT(*) AS INT) AS PTP_ADHERENCE_RATE 
@@ -177,7 +177,7 @@ SELECT agent_id,AGENT_NAME,PTP_ADHERENCE_RATE
 FROM CTE_1 WHERE PTP_ADHERENCE_RATE<
 (SELECT AVG(PTP_ADHERENCE_RATE) FROM CTE_1)
 
---Branch-wise Delinquency Rate
+--19.Branch-wise Delinquency Rate
 
 SELECT DB.branch_id,DB.branch_name, 
 CAST(ROUND(COUNT(CASE WHEN CURRENT_DPD>1 THEN 1 END)*1.0/COUNT(*),2) AS decimal(10,2)) AS DELIQUENCY_RATE
@@ -188,7 +188,7 @@ ON DA.branch_id=DB.branch_id
 GROUP BY DB.branch_id,DB.branch_name
 ORDER BY DELIQUENCY_RATE DESC
 
---Region-wise Recovery Comparison
+--20.Region-wise Recovery Comparison
 
 SELECT REGION ,CAST(SUM(RECOVERED_AMOUNT) AS int) AS POS_SAVED
 FROM fact_resolution AS FR INNER  JOIN dim_agent AS DA
@@ -198,7 +198,7 @@ ORDER BY POS_SAVED DESC
 
 --DELIVERABLE 5: Resource Optimisation & Decision Support
 
---High-Priority Allocation List
+--21.High-Priority Allocation List
 
 SELECT DISTINCT FA.loan_account_id,CAST(FA.outstanding_principal AS INT)AS POS,FA.current_dpd,FA.delinquency_bucket
 FROM 
@@ -210,14 +210,14 @@ SELECT AVG(outstanding_principal) FROM fact_loan_account) AND
 FA.current_dpd BETWEEN 1 AND 60 AND 
 (FP.payment_status='MISSED' OR FT.ptp_status='BROKEN')
 
---Low-Yield Recovery Accounts
+--22.Low-Yield Recovery Accounts
 
 SELECT FL.loan_account_id,CAST(FR.recovered_amount AS int) AS POS FROM 
 fact_loan_account AS FL INNER JOIN fact_resolution AS FR 
 ON FL.loan_account_id=FR.loan_account_id
 WHERE recovered_amount<0.31*FL.outstanding_principal -- THERSOLD LEVEL SET TO 30%
 
---No-Contact High-Risk Loans
+--23.No-Contact High-Risk Loans
 
 SELECT FL.loan_account_id FROM
 fact_loan_account AS FL LEFT JOIN fact_collection_contact AS FC
@@ -227,7 +227,7 @@ WHERE FL.current_dpd>30
 GROUP BY FL.loan_account_id
 HAVING COUNT(FC.contact_id)=0
 
---Risk Segmentation
+--24.Risk Segmentation
 
 SELECT 
 CASE 
@@ -246,9 +246,7 @@ ELSE 'LOW RISK'
 END
 ORDER BY TOTAL_ACCOUNTS DESC
 
---Daily Agent Allocation View
-
-
+--25.Daily Agent Allocation View
 
 CREATE VIEW daily_agent_allocation AS
 SELECT FL.LOAN_ACCOUNT_ID,DA.AGENT_ID,DA.AGENT_NAME ,DA.ROLE,
