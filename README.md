@@ -5,7 +5,7 @@
 - [Project Illustration](#Project-Illustration)
 - [Project Walkthrough](#Project-Walkthrough)
 - [Deliverables](#Deliverables)
-- [Tools & Technologies](#Tools-Technologies)
+- [Tools & Technologies](#Tools--Technologies)
 
 
 # 📊  NBFC Loan Risk & Collections Analytics System
